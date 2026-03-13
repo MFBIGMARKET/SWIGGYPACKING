@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Swiggy Packing App</title>
+    
+    <link rel="manifest" href="packing-manifest.json">
+    <meta name="theme-color" content="#1a73e8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="packing-icon.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <style>
+        :root { --primary: #1a73e8; --bg: #f8f9fa; --surface: #ffffff; --border: #e0e0e0; --green: #188038; --red: #d93025; --orange: #f57c00; --text-main: #202124; --text-sub: #5f6368; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text-main); height: 100vh; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        /* ACCESS CONTROL UTILITY */
+        .hidden-force { display: none !important; }
+
+        /* LAYOUT */
+        .page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--bg); transform: translateX(100%); transition: transform 0.3s; z-index: 100; }
+        .page.active { transform: translateX(0); }
+        .page.root-page { transform: translateX(0); z-index: 10; } 
+
+        /* LOGIN SCREEN */
+        #page-login { z-index: 9999; background: white; justify-content: center; padding: 30px; }
+        .login-box { text-align: center; width: 100%; max-width: 320px; margin: auto; }
+        .login-logo { font-size: 64px; color: var(--primary); margin-bottom: 20px; }
+        .login-title { font-size: 24px; font-weight: 900; color: #333; margin-bottom: 30px; }
+        .login-input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; font-size: 16px; background: #fafafa; outline: none; }
+        .login-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 10px rgba(26,115,232,0.3); }
+        
+        /* HEADER */
+        .header { background: var(--surface); height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); z-index: 20; }
+        .header h2 { margin: 0; font-size: 18px; color: var(--primary); font-weight: 700; }
+        .icon-btn { background: none; border: none; cursor: pointer; color: var(--text-sub); display: flex; align-items: center; padding: 8px; border-radius: 50%; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+
+        /* HEADER BUTTONS */
+        .btn-finish-header { background: var(--green); color: white; border: none; border-radius: 20px; padding: 8px 16px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-finish-header:active { transform: scale(0.95); background: #146c2e; }
+
+        /* CONTENT */
+        .content { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 80px; }
+        .full-content { flex: 1; overflow-y: auto; padding: 12px; } 
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* NAV */
+        .bottom-nav { height: 65px; background: var(--surface); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; flex-shrink: 0; z-index: 200; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #999; width: 100%; height: 100%; font-size: 10px; font-weight: 500; transition: 0.2s; }
+        .nav-item.active { color: var(--primary); transform: translateY(-2px); }
+        .nav-item .material-icons { font-size: 24px; margin-bottom: 3px; }
+
+        /* TASK CARD UPDATES */
+        .task-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid var(--border); cursor: pointer; position: relative; overflow: hidden; transition: transform 0.2s; }
+        .task-card:active { transform: scale(0.98); }
+        .task-label { font-size: 11px; font-weight: 800; color: var(--text-sub); letter-spacing: 1px; text-transform: uppercase; }
+        .date-pill { background: #e8f0fe; color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+        .progress-track { height: 8px; background: #f1f3f4; border-radius: 4px; overflow: hidden; width: 100%; }
+        .progress-fill { height: 100%; transition: width 0.5s ease; border-radius: 4px; }
+        .task-footer { display: flex; justify-content: flex-end; align-items: center; font-size: 13px; font-weight: 500; color: var(--text-sub); border-top: 1px solid #f1f3f4; padding-top: 12px; margin-top: 5px; }
+        .btn-start { color: var(--primary); font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; letter-spacing: 0.5px; }
+
+        /* HISTORY */
+        .hist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .section-title { font-size: 14px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; }
+        .month-picker { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: white; font-family: inherit; font-size: 13px; outline: none; }
+        .history-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .hist-date { font-weight: 700; font-size: 15px; color: var(--text-main); }
+        .hist-sub { color: var(--text-sub); font-size: 12px; margin-top: 2px; }
+        
+        .info-row { font-size: 11px; color: #5f6368; margin-top: 4px; line-height: 1.4; }
+        .user-line { font-size: 10px; margin-top: 2px; font-weight: 500; color: #1a73e8; display: flex; gap: 8px; }
+        .user-line .edited { color: #e65100; }
+        .img-icon-btn { color: var(--primary); cursor: pointer; padding: 5px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .img-icon-btn:active { background: #e8f0fe; }
+
+        /* PACKING ITEMS */
+        .search-container { display: flex; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); align-items: center; }
+        .search-input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); outline: none; font-size: 14px; }
+        .filter-btn { width: 42px; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: white; color: #555; display: flex; align-items: center; justify-content: center; }
+        .filter-active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-pending { background: var(--orange); color: white; border-color: var(--orange); }
+
+        .card { background: white; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); overflow: hidden; border: 1px solid var(--border); }
+        .card.packed { border: 2px solid var(--green); background: #f1f8e9; }
+        .card.overpacked { border: 2px solid var(--red); background: #ffebee; }
+        
+        .card-header { padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .item-name { font-weight: 700; font-size: 15px; color: #202124; }
+        .item-code { font-family: monospace; font-weight: 700; font-size: 12px; color: var(--text-sub); background: #eee; padding: 2px 6px; border-radius: 4px; }
+        
+        .card-body { padding: 12px; display: grid; grid-template-columns: 0.8fr 1fr 1fr 0.6fr; gap: 8px; align-items: end; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-label { font-size: 10px; color: #888; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; text-align: center; }
+        .val-box { background: #e8f0fe; color: var(--primary); padding: 10px 0; border-radius: 8px; font-weight: 700; text-align: center; height: 42px; line-height: 20px; border: 1px solid #d2e3fc;}
+        
+        input.qty-input { width: 100%; height: 42px; border: 1px solid #ccc; border-radius: 8px; font-size: 18px; text-align: center; font-weight: bold; background: #fff; padding:0; outline:none; }
+        input.qty-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,0.1); }
+        input.qty-input:disabled { background: #f1f3f4; color: #555; border-color: transparent; }
+
+        .cam-btn { height: 42px; border-radius: 8px; border: 1px solid #ccc; background: #f1f3f4; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; color:#5f6368; }
+        .cam-btn.has-img { background: var(--primary); color: white; border-color: var(--primary); }
+        .cam-input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; z-index: 2; }
+
+        .card.packed .val-box { background: #c8e6c9; color: #1b5e20; border-color: #a5d6a7; }
+        .card.overpacked .item-name { color: #c62828; }
+        .card.overpacked .val-box { background: #ffcdd2; color: #b71c1c; border-color: #ef9a9a; }
+        .card.overpacked input.qty-input { color: #c62828; font-weight: 800; }
+
+        .card-footer { padding: 8px 12px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: white; }
+        .item-btn { padding: 6px 16px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; border: none; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-edit { background: #fff; color: var(--text-main); border: 1px solid #ddd; }
+        .packer-badge { font-size: 10px; color: #555; background: #eee; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; }
+
+        /* ATTENDANCE & PROFILE */
+        .att-header { background:white; padding:20px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05); margin-bottom:15px; border:1px solid var(--border); text-align: center; }
+        .att-status-row { margin-bottom:20px; display: flex; justify-content: center; gap: 10px; align-items: center; }
+        .loc-badge { font-size:13px; padding:6px 12px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; font-weight: 600; }
+        .loc-ok { background:#e8f5e9; color:var(--green); }
+        .loc-err { background:#ffebee; color:var(--red); }
+        .clock-btn { width: 100%; height: 55px; border-radius: 12px; border: none; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing:1px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition:0.2s; }
+        .btn-in { background: var(--green); color: white; }
+        .btn-out { background: var(--red); color: white; }
+        .btn-done { background: #f5f5f5; color: #aaa; cursor:default; box-shadow: none; }
+
+        /* PROFILE */
+        .profile-header { background: white; padding: 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; }
+        .avatar { width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; }
+        .user-info h3 { margin: 0; font-size: 18px; }
+        .user-info p { margin: 4px 0 0 0; color: #666; font-size: 13px; }
+        .logout-btn { background: #ffebee; color: var(--red); border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; margin-left: auto; }
+
+        /* NEW ATTENDANCE TABLE STYLE (Neat Bordered) */
+        .att-table-container { 
+            background: white; border-radius: 12px; overflow: hidden; 
+            border: 1px solid var(--border); margin-top: 10px; 
+        }
+        .att-table { width: 100%; border-collapse: collapse; }
+        .att-table th { 
+            background: #f8f9fa; color: #666; font-size: 11px; font-weight: 700; text-transform: uppercase; 
+            padding: 12px 10px; border-bottom: 1px solid #eee; text-align: center;
+        }
+        .att-table td { 
+            padding: 12px 10px; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #333; text-align: center;
+            border-right: 1px solid #f8f8f8;
+        }
+        .att-table td:last-child { border-right: none; }
+        .ot-val { font-weight: 700; color: var(--orange); background: #fff3e0; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+        /* COMPACT ADMIN TOOLS (FAB STYLE) */
+        .admin-fab {
+            position: fixed; bottom: 80px; right: 20px;
+            background: var(--primary); color: white;
+            width: 56px; height: 56px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+            cursor: pointer; z-index: 200;
+            transition: transform 0.2s;
+        }
+        .admin-fab:active { transform: scale(0.95); }
+
+        /* ADMIN DASHBOARD */
+        .admin-att-card { background: white; padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .admin-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 5px; display: inline-block; }
+        .status-in { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .status-out { background: var(--red); }
+
+        /* HELPERS */
+        .status-msg { text-align: center; margin-top: 60px; color: #999; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .hidden { display: none !important; }
+        .net-status { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; margin-right: 10px; }
+        .net-online { background: #00e676; box-shadow: 0 0 5px #00e676; }
+        .net-offline { background: #ff1744; }
+
+        /* MODALS */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; display: flex; align-items: center; justify-content: center; }
+        .modal-box { background: white; width: 90%; max-width: 350px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: #f8f9fa; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; }
+        .stat-num { font-size: 24px; font-weight: 900; }
+
+        #img-modal { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
+        #img-content { margin: auto; display: block; max-width: 90%; max-height: 80vh; margin-top: 10vh; }
+        .close-img { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="page-login" class="page active" style="z-index: 10000;">
+    <div class="login-box">
+        <div class="login-logo"><span class="material-icons" style="font-size:64px">lock</span></div>
+        <div class="login-title">Staff Login</div>
+        
+        <select id="login-user" class="login-input">
+            <option value="" disabled selected>Select User</option>
+            <option value="VISHAKH">VISHAKH</option>
+            <option value="RAJEEV">RAJEEV</option>
+            <option value="MOUSUM">MOUSUM</option>
+            <option value="YADHU">YADHU</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="BILLING">BILLING (Office)</option>
+        </select>
+        
+        <input type="password" id="login-pass" class="login-input" placeholder="Password">
+        <button class="login-btn" onclick="handleLogin()">LOGIN</button>
+        <p id="login-error" style="color:red; margin-top:15px; font-size:13px;"></p>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page root-page hidden" id="page-dashboard">
+    <div class="header">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span class="material-icons" style="color:var(--primary)">inventory_2</span>
+            <h2>Swiggy Packing</h2>
+        </div>
+        <button class="icon-btn" onclick="location.reload()"><span class="material-icons">refresh</span></button>
+    </div>
+
+    <div class="content">
+        <!-- TAB 1: TASKS -->
+        <div id="tab-available" class="tab-content active">
+            <div id="available-container">
+                <div class="status-msg"><span class="material-icons" style="font-size:32px; animation: spin 1s infinite;">sync</span>Loading...</div>
+            </div>
+        </div>
+
+        <!-- TAB 2: ATTENDANCE -->
+        <div id="tab-attendance" class="tab-content">
+            <!-- STAFF VIEW -->
+            <div id="staff-att-view">
+                <div class="att-header">
+                    <h3 style="margin:0 0 15px 0; color:#333;">Today's Check-In</h3>
+                    <div class="att-status-row">
+                        <div id="loc-badge" class="loc-badge loc-err"><span class="material-icons" style="font-size:14px">gps_off</span> Checking...</div>
+                        <div id="today-time" style="font-size:14px; color:#555; font-weight:700;">--:--</div>
+                    </div>
+                    <div id="att-action-area"></div>
+                </div>
+            </div>
+
+            <!-- ADMIN VIEW (Clean Header) -->
+            <div id="admin-att-view" class="hidden">
+                <div class="hist-header">
+                    <span class="section-title">Staff Status Today</span>
+                    <span style="font-size:12px; color:#666;" id="admin-date"></span>
+                </div>
+                <div id="admin-status-list" style="background:white; border-radius:12px; overflow:hidden; border:1px solid #eee;">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: HISTORY -->
+        <div id="tab-history" class="tab-content">
+            <div class="hist-header">
+                <span class="section-title">Past Orders</span>
+                <input type="month" id="hist-month-filter" class="month-picker" onchange="loadHistory()">
+            </div>
+            <div id="history-list"></div>
+        </div>
+
+        <!-- TAB 4: PROFILE -->
+        <div id="tab-profile" class="tab-content">
+            <div class="profile-header">
+                <div class="avatar" id="prof-avatar">U</div>
+                <div class="user-info">
+                    <h3 id="prof-name">User</h3>
+                    <p id="prof-role">Staff Member</p>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">LOGOUT</button>
+            </div>
+            
+            <div style="padding:20px 0;">
+                <div class="hist-header">
+                    <span class="section-title">Log History</span>
+                    <div style="display:flex; gap:5px;">
+                        <!-- ADMIN ONLY SELECTOR -->
+                        <select id="admin-user-filter" class="month-picker hidden" onchange="loadAttendanceHistory()">
+                            <option value="VISHAKH">VISHAKH</option>
+                            <option value="RAJEEV">RAJEEV</option>
+                            <option value="MOUSUM">MOUSUM</option>
+                            <option value="YADHU">YADHU</option>
+                        </select>
+                        <input type="month" id="prof-month-filter" class="month-picker" onchange="loadAttendanceHistory()">
+                    </div>
+                </div>
+                
+                <!-- NEW NEAT TABLE -->
+                <div class="att-table-container">
+                    <table class="att-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>In</th>
+                                <th>Out</th>
+                                <th>OT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="att-history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- ADMIN TOOLS (Compact FAB) -->
+            <div id="admin-profile-tools" class="hidden admin-fab" onclick="openAdminOverride()" title="Manual Attendance">
+                <span class="material-icons">edit_calendar</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+        <div id="nav-task" class="nav-item active" onclick="switchTab('available', this)"><span class="material-icons">assignment</span><span>Tasks</span></div>
+        <div id="nav-att" class="nav-item" onclick="switchTab('attendance', this)"><span class="material-icons">fingerprint</span><span>Attend</span></div>
+        <div id="nav-hist" class="nav-item" onclick="switchTab('history', this)"><span class="material-icons">history</span><span>History</span></div>
+        <div id="nav-prof" class="nav-item" onclick="switchTab('profile', this)"><span class="material-icons">person</span><span>Profile</span></div>
+    </div>
+</div>
+
+<!-- PACKING INTERFACE -->
+<div class="page" id="page-packing">
+    <div class="header">
+        <button class="icon-btn" onclick="closePage('page-packing')"><span class="material-icons">arrow_back</span></button>
+        <div style="display:flex; align-items:center;">
+            <div id="net-indicator" class="net-status" title="Connection Status"></div>
+            <h2 id="packing-title" style="font-size:16px;">Packing...</h2>
+        </div>
+        <div class="header-actions">
+            <!-- UPDATED BUTTON: HIDDEN BY DEFAULT -->
+            <button id="header-finish-btn" class="btn-finish-header hidden-force" onclick="submitToReview()">
+                <span class="material-icons">done_all</span> Finish
+            </button>
+        </div>
+    </div>
+    <div class="search-container">
+        <input type="text" id="searchBox" class="search-input" placeholder="Search item..." onkeyup="filterList()">
+        <button id="btn-filter" class="filter-btn" onclick="toggleFilterMode()"><span class="material-icons" id="icon-filter">filter_list</span></button>
+    </div>
+    <div class="full-content">
+        <div id="packing-list-container"></div>
+    </div>
+</div>
+
+<!-- HISTORY DETAIL -->
+<div class="page" id="page-history-detail">
+    <div class="header">
+        <button class="icon-btn" onclick="closePage('page-history-detail')"><span class="material-icons">arrow_back</span></button>
+        <h2 style="font-size:16px;">Details</h2>
+        
+        <!-- NEW DOWNLOAD BUTTON -->
+        <div style="margin-left: auto; display:flex; gap:10px;">
+            <button id="btn-download-history" class="icon-btn hidden-force" onclick="downloadHistoryCSV()" title="Download Excel">
+                <span class="material-icons" style="color:var(--primary)">file_download</span>
+            </button>
+        </div>
+    </div>
+    <div class="search-container">
+        <input type="text" id="histSearchBox" class="search-input" placeholder="Search item..." onkeyup="filterHistoryList()">
+        <button id="btn-hist-filter" class="filter-btn" onclick="toggleHistoryFilterMode()">
+            <span class="material-icons" id="icon-hist-filter">filter_list</span>
+        </button>
+    </div>
+    <div class="full-content" id="history-detail-content"></div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirm-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div style="padding:20px 20px 0 20px;">
+            <h3 style="margin:0; color:var(--text-main); font-size:18px;">Finish Packing?</h3>
+            <p style="color:#666; font-size:13px; margin:5px 0 15px 0;">Order will be sent to the office.</p>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-item"><div class="stat-label">Packed</div><div class="stat-num" style="color:var(--green)" id="conf-packed">0</div></div>
+            <div class="stat-item"><div class="stat-label">Pending</div><div class="stat-num" style="color:var(--red)" id="conf-pending">0</div></div>
+        </div>
+        <div style="padding:20px; display:flex; gap:10px;">
+            <button onclick="document.getElementById('confirm-modal').classList.add('hidden')" style="flex:1; padding:12px; border-radius:8px; border:1px solid #ddd; background:white; font-weight:700; cursor:pointer; color:#555;">CANCEL</button>
+            <button onclick="executeFinalSubmit()" style="flex:1; padding:12px; border-radius:8px; border:none; background:var(--green); font-weight:700; cursor:pointer; color:white;">SEND</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADMIN ATTENDANCE OVERRIDE MODAL -->
+<div id="admin-override-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header" style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:16px;">Manual Attendance</h3>
+            <span class="material-icons" onclick="document.getElementById('admin-override-modal').classList.add('hidden')" style="cursor:pointer">close</span>
+        </div>
+        <div style="padding:20px;">
+            <label style="font-size:12px; font-weight:700; color:#666; display:block; margin-bottom:5px;">Select Date</label>
+            <input type="date" id="override-date" class="login-input" style="padding:8px; margin-bottom:15px;">
+            
+            <label style="font-size:12px; font-weight:700; color:#666; display:block; margin-bottom:5px;">Select Employee</label>
+            <select id="override-emp" class="login-input" style="padding:8px; margin-bottom:15px;">
+                <option value="VISHAKH">VISHAKH</option>
+                <option value="RAJEEV">RAJEEV</option>
+                <option value="MOUSUM">MOUSUM</option>
+                <option value="YADHU">YADHU</option>
+            </select>
+            
+            <!-- NEW TIME INPUTS -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+                <div>
+                    <label style="font-size:11px; font-weight:700; color:#666;">In Time</label>
+                    <input type="time" id="override-time-in" class="login-input" style="padding:8px;">
+                </div>
+                <div>
+                    <label style="font-size:11px; font-weight:700; color:#666;">Out Time</label>
+                    <input type="time" id="override-time-out" class="login-input" style="padding:8px;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <button onclick="saveAdminOverride()" style="padding:12px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:700;">SAVE</button>
+                <button onclick="markAdminAbsent()" style="padding:12px; background:var(--red); color:white; border:none; border-radius:8px; font-weight:700;">ABSENT</button>
+            </div>
+            
+            <p id="override-status" style="font-size:12px; color:#666; margin-top:15px; text-align:center; min-height:15px;"></p>
+        </div>
+    </div>
+</div>
+
+<div id="img-modal" onclick="this.style.display='none'"><span class="close-img">&times;</span><img id="img-content"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, get, child, remove, query, limitToLast, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB6OFRosamp5U5lKnAxl0wptGt5-eHL6ZQ",
+        authDomain: "swiggymargin.firebaseapp.com",
+        projectId: "swiggymargin",
+        storageBucket: "swiggymargin.firebasestorage.app",
+        messagingSenderId: "531917441854",
+        appId: "1:531917441854:web:c48880dfe0638ad901fa6f",
+        databaseURL: "https://swiggymargin-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    
+    let activeIndent = null;
+    let currentFilterMode = 'all'; 
+    let masterMap = {}; 
+    let currentUser = null;
+    let historyData = [];
+    let currentHistoryRec = null;
+    let histFilterMode = 'all';
+
+    const USERS = {
+        'VISHAKH': 'Vish@123',
+        'RAJEEV': 'Raj@345',
+        'MOUSUM': 'Mou@789',
+        'YADHU': 'Yad@234',
+        'ADMIN': 'Admin#098',
+        'BILLING': 'Bill@123'
+    };
+    
+    const SHOP_LAT = 11.9322032684928;
+    const SHOP_LNG = 75.57772362536731; 
+    const ALLOWED_RADIUS_KM = 0.100;
+    const TEST_MODE = false; 
+
+    function formatDateDisplay(dateStr) {
+        if(!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y.slice(-2)}`;
+    }
+
+    function init() {
+        checkAuth(); 
+        setupRealtimeListener();
+        loadMasterData(); 
+        
+        const netInd = document.getElementById('net-indicator');
+        if(netInd) {
+            const updateNet = () => { if(navigator.onLine) netInd.className='net-status net-online'; else netInd.className='net-status net-offline'; };
+            window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet); updateNet();
+        }
+
+        const now = new Date();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        document.getElementById('prof-month-filter').value = `${y}-${m}`;
+        document.getElementById('hist-month-filter').value = `${y}-${m}`;
+    }
+
+    function checkAuth() {
+        const storedUser = localStorage.getItem('swiggy_user');
+        if (storedUser && USERS[storedUser]) {
+            currentUser = storedUser;
+            showDashboard();
+        } else {
+            document.getElementById('page-login').classList.remove('hidden');
+            document.getElementById('page-dashboard').classList.add('hidden');
+        }
+    }
+
+    function handleLogin() {
+        const user = document.getElementById('login-user').value;
+        const pass = document.getElementById('login-pass').value;
+        const errorMsg = document.getElementById('login-error');
+
+        if (!user) { errorMsg.innerText = "Please select a user."; return; }
+        if (USERS[user] === pass) {
+            localStorage.setItem('swiggy_user', user);
+            currentUser = user;
+            showDashboard();
+        } else {
+            errorMsg.innerText = "Invalid Password.";
+        }
+    }
+
+    function showDashboard() {
+        document.getElementById('page-login').classList.add('hidden');
+        document.getElementById('page-dashboard').classList.remove('hidden');
+        
+        document.getElementById('prof-avatar').innerText = currentUser.charAt(0);
+        document.getElementById('prof-name').innerText = currentUser;
+        
+        // 1. ACCESS CONTROL: FINISH BUTTON
+        const finishBtn = document.getElementById('header-finish-btn');
+        if (finishBtn) {
+            if (currentUser === 'ADMIN' || currentUser === 'VISHAKH') {
+                finishBtn.classList.remove('hidden-force');
+            } else {
+                finishBtn.classList.add('hidden-force');
+            }
+        }
+
+        // 2. ACCESS CONTROL: DOWNLOAD BUTTON
+        const dlBtn = document.getElementById('btn-download-history');
+        if (dlBtn) {
+            if (currentUser === 'ADMIN' || currentUser === 'BILLING') {
+                dlBtn.classList.remove('hidden-force');
+            } else {
+                dlBtn.classList.add('hidden-force');
+            }
+        }
+
+        // 3. BILLING USER LOGIC
+        if (currentUser === 'BILLING') {
+            document.getElementById('prof-role').innerText = 'Billing Staff';
+            
+            document.getElementById('nav-task').classList.add('hidden-force');
+            document.getElementById('nav-att').classList.add('hidden-force');
+            
+            document.getElementById('nav-hist').classList.remove('hidden-force');
+            document.getElementById('nav-prof').classList.remove('hidden-force');
+            
+            const histBtn = document.getElementById('nav-hist');
+            switchTab('history', histBtn);
+            return;
+        } 
+        
+        // 4. STANDARD USER LOGIC
+        document.getElementById('nav-task').classList.remove('hidden-force');
+        document.getElementById('nav-att').classList.remove('hidden-force');
+        document.getElementById('nav-prof').classList.remove('hidden-force');
+
+        if (currentUser === 'ADMIN') {
+            document.getElementById('prof-role').innerText = 'Administrator';
+            document.getElementById('staff-att-view').classList.add('hidden');
+            document.getElementById('admin-att-view').classList.remove('hidden');
+            document.getElementById('admin-user-filter').classList.remove('hidden'); 
+            
+            // SHOW ADMIN TOOLS IN PROFILE
+            document.getElementById('admin-profile-tools').classList.remove('hidden');
+            
+            loadAdminDashboard();
+        } else {
+            document.getElementById('prof-role').innerText = 'Staff Member';
+            document.getElementById('staff-att-view').classList.remove('hidden');
+            document.getElementById('admin-att-view').classList.add('hidden');
+            document.getElementById('admin-user-filter').classList.add('hidden');
+            document.getElementById('admin-profile-tools').classList.add('hidden');
+        }
+        
+        switchTab('available', document.getElementById('nav-task'));
+    }
+
+    function handleLogout() {
+        if(!confirm("Logout?")) return;
+        localStorage.removeItem('swiggy_user');
+        location.reload();
+    }
+
+    async function loadMasterData() {
+        try {
+            const snap = await get(child(ref(db), 'products'));
+            if (snap.exists()) {
+                const arr = snap.val();
+                arr.forEach(p => { if(p) masterMap[p.id] = p; });
+                if(activeIndent) filterList(); 
+            }
+        } catch(e) { console.error("Master data error", e); }
+    }
+
+    function setupRealtimeListener() {
+        const container = document.getElementById('available-container');
+        onValue(ref(db, 'active_indent'), (snapshot) => {
+            if (snapshot.exists()) {
+                activeIndent = snapshot.val();
+                renderDashboardCard();
+                if(document.getElementById('page-packing').classList.contains('active')) filterList(); 
+            } else {
+                activeIndent = null;
+                container.innerHTML = `<div class="status-msg"><span class="material-icons" style="font-size:48px; color:#ccc">assignment_turned_in</span><p>No new orders.</p></div>`;
+                if(document.getElementById('page-packing').classList.contains('active')) closePage('page-packing');
+            }
+        });
+    }
+
+    function renderDashboardCard() {
+        if(!activeIndent) return;
+        const container = document.getElementById('available-container');
+        
+        // --- 1. ITEMS CALCULATION ---
+        const itemCount = activeIndent.items ? activeIndent.items.length : 0;
+        let packedCount = 0;
+        if (activeIndent.items) packedCount = activeIndent.items.filter(i => i.isPacked === true).length;
+        
+        const itemPct = itemCount > 0 ? Math.round((packedCount / itemCount) * 100) : 0;
+        const itemColor = itemPct === 100 ? 'var(--green)' : 'var(--primary)';
+
+        // --- 2. PACKETS (VOLUME) CALCULATION ---
+        let totalOrdPkts = 0;
+        let totalPackedPkts = 0;
+        
+        if (activeIndent.items) {
+            activeIndent.items.forEach(i => {
+                totalOrdPkts += parseFloat(i.poQty) || 0;
+                if (i.isPacked) {
+                    totalPackedPkts += parseFloat(i.savedQty !== undefined ? i.savedQty : i.poQty) || 0;
+                }
+            });
+        }
+        
+        const pktPct = totalOrdPkts > 0 ? Math.round((totalPackedPkts / totalOrdPkts) * 100) : 0;
+        // Use a different color (like orange) for volume to distinguish, turns green when done
+        const pktColor = pktPct >= 100 ? 'var(--green)' : '#f57c00'; 
+
+        // --- RENDER HTML ---
+        container.innerHTML = `
+            <div class="task-card" onclick="openPacking()">
+                
+                <!-- HEADER: Title & Date (Top Right) -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                    <div class="task-label">Active Order</div>
+                    <div class="date-pill">${formatDateDisplay(activeIndent.date)}</div>
+                </div>
+                
+                <!-- PROGRESS 1: Unique Items -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#555; margin-bottom:6px;">
+                        <span>UNIQUE ITEMS</span>
+                        <span style="color:var(--text-main)">${packedCount} / ${itemCount} <span style="color:${itemColor}; margin-left:4px;">(${itemPct}%)</span></span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width:${itemPct}%; background:${itemColor}"></div>
+                    </div>
+                </div>
+
+                <!-- PROGRESS 2: Total Packets -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#555; margin-bottom:6px;">
+                        <span>TOTAL PACKETS</span>
+                        <span style="color:var(--text-main)">${totalPackedPkts} / ${totalOrdPkts} <span style="color:${pktColor}; margin-left:4px;">(${pktPct}%)</span></span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width:${pktPct}%; background:${pktColor}"></div>
+                    </div>
+                </div>
+                
+                <!-- FOOTER: Open Button -->
+                <div class="task-footer">
+                    <span class="btn-start">OPEN <span class="material-icons" style="font-size:16px">arrow_forward</span></span>
+                </div>
+                
+            </div>`;
+    }
+
+    function switchTab(tabName, el) {
+        document.querySelectorAll('.tab-content').forEach(d => d.classList.remove('active'));
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(d => d.classList.remove('active'));
+        el.classList.add('active');
+        if(tabName === 'attendance') {
+            if(currentUser === 'ADMIN') loadAdminDashboard(); else refreshAttendanceTab();
+        }
+        if(tabName === 'history') loadHistory();
+        if(tabName === 'profile') loadAttendanceHistory();
+    }
+
+    function openPacking() {
+        if(!activeIndent) return;
+        document.getElementById('packing-title').innerText = formatDateDisplay(activeIndent.date);
+        filterList(); 
+        document.getElementById('page-packing').classList.add('active');
+    }
+
+    function closePage(pageId) {
+        document.getElementById(pageId).classList.remove('active');
+    }
+
+    function toggleFilterMode() {
+        const btn = document.getElementById('btn-filter');
+        const icon = document.getElementById('icon-filter');
+        if (currentFilterMode === 'all') { currentFilterMode = 'pending'; btn.className = 'filter-btn filter-pending'; icon.innerText = 'check_box_outline_blank'; } 
+        else if (currentFilterMode === 'pending') { currentFilterMode = 'packed'; btn.className = 'filter-btn filter-active'; icon.innerText = 'check_box'; } 
+        else { currentFilterMode = 'all'; btn.className = 'filter-btn'; icon.innerText = 'filter_list'; }
+        filterList();
+    }
+
+    function filterList() {
+        const term = document.getElementById('searchBox').value.toLowerCase();
+        const sorted = [...activeIndent.items].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const filtered = sorted.filter(item => {
+            const matchesText = item.name.toLowerCase().includes(term) || item.code.toString().includes(term);
+            let matchesMode = true;
+            if (currentFilterMode === 'packed') matchesMode = (item.isPacked === true);
+            if (currentFilterMode === 'pending') matchesMode = (!item.isPacked);
+            return matchesText && matchesMode;
+        });
+        renderPackingList(filtered);
+    }
+
+    function renderPackingList(items) {
+        const container = document.getElementById('packing-list-container');
+        container.innerHTML = '';
+        if(items.length === 0) { container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">No items found.</div>'; return; }
+        
+        items.forEach((item) => {
+            const isPacked = item.isPacked === true;
+            const valQty = parseFloat(item.savedQty !== undefined ? item.savedQty : item.poQty) || 0;
+            const valKg = parseFloat(item.savedKg) || 0;
+            const dispKg = item.savedKg !== undefined ? item.savedKg : '';
+            const imgData = item.savedImg || null;
+            const disabledAttr = isPacked ? 'disabled' : '';
+            
+            let showEditBtn = false;
+            
+            if (isPacked) {
+                if (currentUser === 'ADMIN') {
+                    showEditBtn = true;
+                } else if (currentUser === 'VISHAKH') {
+                    const edits = item.editCount || 0;
+                    if (edits < 1) showEditBtn = true;
+                }
+            }
+
+            let cardClass = 'card';
+            let weightInfoHTML = ''; 
+            const master = masterMap[item.code];
+            
+            if (master && master.conv > 0) {
+                const oneUnitKg = master.conv;
+                const totalTargetKg = (item.poQty * oneUnitKg).toFixed(2); 
+                weightInfoHTML = `<div style="font-size:11px; color:#5f6368;">1 Qty=${oneUnitKg}kg, Target=${totalTargetKg}kg</div>`;
+            }
+
+            let userInfoHTML = '';
+            if (isPacked) {
+                if (item.editedBy) userInfoHTML = `<div style="font-size:10px; color:#d93025;">Edited by: ${item.editedBy}</div>`;
+                else if (item.packedBy) userInfoHTML = `<div style="font-size:10px; color:#188038;">Packed by: ${item.packedBy}</div>`;
+            }
+
+            if (isPacked) {
+                let isOver = false;
+                if (valQty > item.poQty) isOver = true; 
+                if (!isOver && master && master.conv > 0 && valKg > 0) {
+                    const stdWeight = valQty * master.conv;
+                    if (valKg > (stdWeight + 0.05)) isOver = true;
+                }
+                if (isOver) cardClass += ' overpacked'; else cardClass += ' packed';
+            }
+
+            const div = document.createElement('div');
+            div.className = cardClass;
+            div.innerHTML = `
+                <div class="card-header"><span class="item-name">${item.name}</span><span class="item-code">#${item.code}</span></div>
+                <div class="card-body">
+                    <div class="input-group"><span class="input-label">ORDER</span><div class="val-box">${item.poQty}</div></div>
+                    <div class="input-group"><span class="input-label">PACKED</span><input type="number" inputmode="numeric" id="qty-${item.code}" value="${valQty}" class="qty-input" ${disabledAttr}></div>
+                    <div class="input-group"><span class="input-label">KG/NOS</span><input type="number" inputmode="decimal" id="kg-${item.code}" placeholder="0.0" value="${dispKg}" class="qty-input" ${disabledAttr}></div>
+                    <div class="input-group"><span class="input-label">PHOTO</span><div class="cam-btn ${imgData?'has-img':''}" id="btn-cam-${item.code}"><span class="material-icons">${imgData?'visibility':'camera_alt'}</span>${!imgData&&!isPacked?`<input type="file" accept="image/*" capture="environment" class="cam-input" onchange="handleImage(this,${item.code})">`:``}${imgData?`<div style="position:absolute;width:100%;height:100%;" onclick="openModal('${imgData}')"></div>`:``}${imgData&&!isPacked?`<span style="position:absolute;right:-5px;top:-5px;background:white;color:red;border-radius:50%;padding:2px;font-size:12px;border:1px solid #ccc;" onclick="clearImage(${item.code});event.stopPropagation();">X</span>`:``}</div></div>
+                </div>
+                <div class="card-footer">
+                    <div style="display:flex; flex-direction:column;">${weightInfoHTML}${userInfoHTML}</div>
+                    ${!isPacked ? 
+                        `<button class="item-btn btn-save" onclick="saveSingleItem(${item.code})"><span class="material-icons" style="font-size:16px">check</span> Save</button>` : 
+                        (showEditBtn ? `<button class="item-btn btn-edit" onclick="enableEditItem(${item.code})"><span class="material-icons" style="font-size:16px">edit</span> Edit</button>` : `<span style="font-size:11px; color:#888; font-style:italic;">Locked</span>`)
+                    }
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function findItemIndex(code) {
+        if(!activeIndent || !activeIndent.items) return -1;
+        return activeIndent.items.findIndex(i => i.code == code);
+    }
+
+    async function saveSingleItem(code) {
+        const idx = findItemIndex(code);
+        if(idx === -1) return;
+
+        const qtyInput = document.getElementById(`qty-${code}`);
+        const kgInput = document.getElementById(`kg-${code}`);
+        const updates = {};
+        const path = `active_indent/items/${idx}`;
+        
+        const wasPackedBefore = activeIndent.items[idx].isPacked === true;
+        let currentEditCount = activeIndent.items[idx].editCount || 0;
+
+        updates[`${path}/savedQty`] = parseFloat(qtyInput.value) || 0;
+        updates[`${path}/savedKg`] = parseFloat(kgInput.value) || 0;
+        updates[`${path}/isPacked`] = true;
+        
+        if (wasPackedBefore) {
+            updates[`${path}/editedBy`] = currentUser;
+            updates[`${path}/editCount`] = currentEditCount + 1;
+        } else {
+            updates[`${path}/packedBy`] = currentUser;
+            updates[`${path}/editCount`] = 0;
+        }
+        
+        try { await update(ref(db), updates); } catch(e) { alert("Save failed: " + e.message); }
+    }
+
+    async function enableEditItem(code) {
+        const idx = findItemIndex(code);
+        if(idx === -1) return;
+        try { await set(ref(db, `active_indent/items/${idx}/isPacked`), false); } catch(e) { alert("Error: " + e.message); }
+    }
+
+    function handleImage(input, code) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = async function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600; const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                    const idx = findItemIndex(code);
+                    if(idx !== -1) { await set(ref(db, `active_indent/items/${idx}/savedImg`), dataUrl); }
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    async function clearImage(code) {
+        if(!confirm('Remove image?')) return;
+        const idx = findItemIndex(code);
+        if(idx !== -1) { await set(ref(db, `active_indent/items/${idx}/savedImg`), null); }
+    }
+
+    function submitToReview() {
+        if(!activeIndent) {
+            alert("No active order loaded.");
+            return;
+        }
+        const total = activeIndent.items.length;
+        const packed = activeIndent.items.filter(i => i.isPacked === true).length;
+        const pending = total - packed;
+        document.getElementById('conf-packed').innerText = packed;
+        document.getElementById('conf-pending').innerText = pending;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    async function executeFinalSubmit() {
+        const btn = document.querySelector('#confirm-modal button[onclick*="executeFinalSubmit"]');
+        btn.innerHTML = 'SENDING...'; btn.disabled = true;
+        try {
+            const reviewItems = activeIndent.items.map(item => ({
+                code: item.code,
+                name: item.name,
+                poQty: item.poQty,
+                poRate: item.poRate,
+                qty: item.savedQty !== undefined ? item.savedQty : item.poQty,
+                actualKg: item.savedKg || 0,
+                img: item.savedImg || null,
+                packedBy: item.packedBy || ''
+            }));
+            const reviewData = { date: activeIndent.date, items: reviewItems, timestamp: Date.now() };
+            await set(ref(db, 'completed_packing'), reviewData);
+            await remove(ref(db, 'active_indent'));
+            document.getElementById('confirm-modal').classList.add('hidden');
+            alert("Order Submitted Successfully!");
+            closePage('page-packing');
+        } catch (e) { alert("Error: " + e.message); btn.innerHTML = 'SEND'; btn.disabled = false; }
+    }
+
+    async function loadHistory() {
+        const histContainer = document.getElementById('history-list');
+        const filterVal = document.getElementById('hist-month-filter').value;
+        histContainer.innerHTML = '<div class="status-msg">Loading...</div>';
+        try {
+            const q = query(ref(db, 'indents'), limitToLast(100));
+            const snapshot = await get(q);
+            if(snapshot.exists()) {
+                const rawData = snapshot.val();
+                let historyDataLocal = Object.values(rawData).sort((a,b) => b.id - a.id);
+                if(filterVal) {
+                    historyDataLocal = historyDataLocal.filter(rec => rec.date.startsWith(filterVal));
+                }
+                histContainer.innerHTML = '';
+                if(historyDataLocal.length === 0) { histContainer.innerHTML = '<div class="status-msg">No history found for this month.</div>'; return; }
+                historyDataLocal.forEach((rec, idx) => {
+                    const el = document.createElement('div');
+                    el.className = 'history-card';
+                    el.onclick = () => openHistoryDetail(rec); 
+                    el.innerHTML = `<div><div class="hist-date">${formatDateDisplay(rec.date)}</div><div class="hist-sub">${rec.items ? rec.items.length : 0} items packed</div></div><span class="material-icons" style="color:#ccc">chevron_right</span>`;
+                    histContainer.appendChild(el);
+                });
+            } else { histContainer.innerHTML = '<div class="status-msg">No history found.</div>'; }
+        } catch(e) { histContainer.innerHTML = `<div class="status-msg">Error</div>`; }
+    }
+
+    function openHistoryDetail(rec) {
+        currentHistoryRec = rec;
+        if(currentHistoryRec.items) {
+            currentHistoryRec.items.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+        }
+        histFilterMode = 'all';
+        updateHistoryFilterBtn();
+        filterHistoryList();
+        document.getElementById('page-history-detail').classList.add('active');
+    }
+
+    function toggleHistoryFilterMode() {
+        const btn = document.getElementById('btn-hist-filter');
+        if (histFilterMode === 'all') histFilterMode = 'overpacked'; else histFilterMode = 'all';
+        updateHistoryFilterBtn(); filterHistoryList();
+    }
+
+    function updateHistoryFilterBtn() {
+        const btn = document.getElementById('btn-hist-filter');
+        const icon = document.getElementById('icon-hist-filter');
+        if (histFilterMode === 'overpacked') { btn.className = 'filter-btn filter-alert'; icon.innerText = 'warning'; } 
+        else { btn.className = 'filter-btn'; icon.innerText = 'filter_list'; }
+    }
+
+    function filterHistoryList() {
+        const term = document.getElementById('histSearchBox').value.toLowerCase();
+        const container = document.getElementById('history-detail-content');
+        container.innerHTML = '';
+        const displayItems = currentHistoryRec.packingSnapshot || currentHistoryRec.items;
+        if(!displayItems) { container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">No Items.</div>'; return; }
+
+        const filtered = displayItems.filter(item => {
+            const matchesText = item.name.toLowerCase().includes(term) || item.code.toString().includes(term);
+            let isOver = false;
+            const valQty = parseFloat(item.qty) || 0; 
+            const valKg = parseFloat(item.actualKg) || 0;
+            const ordQty = parseFloat(item.originalQty || item.poQty) || 0;
+            if (valQty > ordQty) isOver = true;
+            const master = masterMap[item.code];
+            if (!isOver && master && master.conv > 0 && valKg > 0) {
+                const stdWeight = valQty * master.conv;
+                if (valKg > (stdWeight + 0.05)) isOver = true;
+            }
+            item._isOver = isOver; 
+            let matchesMode = true;
+            if (histFilterMode === 'overpacked') matchesMode = isOver;
+            return matchesText && matchesMode;
+        });
+
+        if(filtered.length === 0) { container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">No items found.</div>'; return; }
+
+        filtered.forEach(item => {
+            const hasImg = item.img ? true : false;
+            const cardClass = item._isOver ? 'card overpacked' : 'card';
+            const packer = item.packedBy ? `<div class="packer-badge"><span class="material-icons" style="font-size:10px">person</span>${item.packedBy}</div>` : '';
+            const imgBtn = hasImg ? `<span class="material-icons img-icon-btn" onclick="openModal('${item.img}')">image</span>` : '';
+
+            container.innerHTML += `
+                <div class="${cardClass}">
+                    <div class="card-header">
+                        <span class="item-name">${item.name}</span>
+                        <div style="text-align:right">
+                            <span class="item-code">#${item.code}</span><br>${packer}
+                        </div>
+                    </div>
+                    <div class="card-body" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                        <div class="input-group"><span class="input-label">Ord</span><div class="val-box" style="background:white; color:#666;">${item.originalQty||item.poQty}</div></div>
+                        <div class="input-group"><span class="input-label">Pck</span><div class="val-box" style="background:white; color:#333;">${item.qty}</div></div>
+                        <div class="input-group"><span class="input-label">Kg</span><div class="val-box" style="background:${item.actualKg>0?'#e8f0fe':'white'}; color:#333;">${item.actualKg||'-'}</div></div>
+                        <div style="display:flex; align-items:center; justify-content:center;">${imgBtn}</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    function refreshAttendanceTab() { checkLocation(); loadTodayStatus(); }
+
+    async function loadTodayStatus() {
+        const today = new Date().toISOString().split('T')[0];
+        const actionArea = document.getElementById('att-action-area');
+        document.getElementById('today-time').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        try {
+            const snap = await get(child(ref(db), `attendance/${today}/${currentUser}`));
+            if (snap.exists()) {
+                const data = snap.val();
+                if (data.inTime && !data.outTime) {
+                    actionArea.innerHTML = `<button class="clock-btn btn-out" onclick="confirmCheckOut()"><span class="material-icons">logout</span> CHECK OUT</button>`;
+                } else if (data.outTime) {
+                    actionArea.innerHTML = `<button class="clock-btn btn-done" disabled><span class="material-icons">check_circle</span> DONE TODAY</button>`;
+                }
+            } else {
+                actionArea.innerHTML = `<button class="clock-btn btn-in" onclick="confirmCheckIn()"><span class="material-icons">login</span> CHECK IN</button>`;
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function loadAdminDashboard() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('admin-date').innerText = today;
+        const list = document.getElementById('admin-status-list');
+        list.innerHTML = '<div style="padding:10px;text-align:center;">Loading...</div>';
+        try {
+            const snap = await get(child(ref(db), `attendance/${today}`));
+            if(snap.exists()) {
+                const data = snap.val();
+                let html = '';
+                const staffList = ['VISHAKH', 'RAJEEV', 'MOUSUM', 'YADHU'];
+                staffList.forEach(name => {
+                    const userLog = data[name];
+                    let status = '<span style="color:#ccc">Absent</span>';
+                    let dotClass = 'admin-status-dot';
+                    if(userLog) {
+                        if(userLog.inTime && !userLog.outTime) {
+                            status = `<span style="color:var(--green); font-weight:700;">In: ${new Date(userLog.inTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+                            dotClass += ' status-in';
+                        } else if(userLog.outTime) {
+                            status = `<span style="color:#555">Done (${new Date(userLog.outTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})})</span>`;
+                            dotClass += ' status-out';
+                        }
+                    }
+                    html += `<div class="admin-att-card"><div style="font-weight:700; display:flex; align-items:center;"><div class="${dotClass}"></div> ${name}</div><div style="font-size:13px;">${status}</div></div>`;
+                });
+                list.innerHTML = html;
+            } else { list.innerHTML = '<div style="padding:15px; text-align:center; color:#ccc">No staff checked in yet.</div>'; }
+        } catch(e) { console.error(e); }
+    }
+
+    async function loadAttendanceHistory() {
+        let targetUser = currentUser;
+        if (currentUser === 'ADMIN') targetUser = document.getElementById('admin-user-filter').value;
+        const filterVal = document.getElementById('prof-month-filter').value;
+        const tbody = document.getElementById('att-history-body');
+        tbody.innerHTML = '<tr><td colspan="4" style="color:#999; padding:20px;">Loading...</td></tr>';
+        try {
+            const snap = await get(ref(db, 'attendance'));
+            if(snap.exists()) {
+                const allData = snap.val();
+                const rows = [];
+                Object.keys(allData).forEach(date => {
+                    if (filterVal && date.substring(0, 7) !== filterVal) return;
+                    const dayData = allData[date][targetUser];
+                    if (dayData) { rows.push({ date: date, in: dayData.inTime, out: dayData.outTime, ot: dayData.otMinutes || 0 }); }
+                });
+                rows.sort((a,b) => b.date.localeCompare(a.date));
+                tbody.innerHTML = '';
+                if(rows.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="color:#ccc; padding:20px;">No records.</td></tr>'; return; }
+                // ... inside loadAttendanceHistory ...
+rows.forEach(r => {
+    const day = r.date.split('-')[2];
+    const inT = r.in ? new Date(r.in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+    const outT = r.out ? new Date(r.out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+
+    // --- ADD THIS BLOCK TO DEFINE otDisplay ---
+    let otDisplay = `<span style="color:#ccc">-</span>`;
+    if (r.ot > 0) { 
+        const h = Math.floor(r.ot / 60); 
+        const m = r.ot % 60; 
+        otDisplay = `<span class="ot-val">${h}h ${m}m</span>`; 
+    }
+    // ------------------------------------------
+
+    tbody.innerHTML += `
+        <tr>
+            <td style="font-weight:700">${day}</td>
+            <td>${inT}</td>
+            <td>${outT}</td>
+            <td>${otDisplay}</td> 
+        </tr>`;
+});
+            } else { tbody.innerHTML = '<tr><td colspan="4" style="color:#ccc; padding:20px;">No data.</td></tr>'; }
+        } catch(e) { console.error(e); }
+    }
+
+    // --- ADMIN MANUAL ATTENDANCE LOGIC ---
+    window.openAdminOverride = function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('override-date').value = today;
+        document.getElementById('override-time-in').value = ""; 
+        document.getElementById('override-time-out').value = ""; 
+        document.getElementById('override-status').innerText = "";
+        document.getElementById('admin-override-modal').classList.remove('hidden');
+    }
+
+    window.saveAdminOverride = async function() {
+    const date = document.getElementById('override-date').value; // e.g., "2026-03-09"
+    const emp = document.getElementById('override-emp').value;
+    const timeIn = document.getElementById('override-time-in').value; // e.g., "09:00"
+    const timeOut = document.getElementById('override-time-out').value; // e.g., "00:30"
+    const statusEl = document.getElementById('override-status');
+    
+    // 1. Basic Validation
+    if(!date) { statusEl.innerText = "❌ Select Date"; return; }
+    if(!timeIn) { statusEl.innerText = "❌ Enter In-Time"; return; }
+    
+    statusEl.innerText = "Saving...";
+    const updates = {};
+    const path = `attendance/${date}/${emp}`;
+
+    try {
+        // 2. Construct the Check-In DateTime Object
+        const checkInDateTime = new Date(`${date}T${timeIn}:00`);
+        updates[`${path}/inTime`] = checkInDateTime.toISOString();
+        updates[`${path}/name`] = emp;
+
+        // 3. Handle Check-Out and Midnight Logic
+        if(timeOut) {
+            let checkOutDateTime = new Date(`${date}T${timeOut}:00`);
+
+            /** 
+             * MIDNIGHT LOGIC:
+             * If the Out-Time is mathematically EARLIER than the In-Time on the same date string,
+             * it means the employee worked past midnight into the next day.
+             * (Example: In 09:00 AM, Out 12:30 AM)
+             */
+            if (checkOutDateTime <= checkInDateTime) {
+                checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
+            }
+
+            updates[`${path}/outTime`] = checkOutDateTime.toISOString();
+
+            // 4. Calculate Overtime (OT)
+            // Standard shift ends at 9:00 PM (21:00) on the day of Check-In
+            const standardEnd = new Date(checkInDateTime);
+            standardEnd.setHours(21, 0, 0, 0);
+
+            let otMinutes = 0;
+            if (checkOutDateTime > standardEnd) {
+                // Difference in milliseconds converted to minutes
+                otMinutes = Math.floor((checkOutDateTime - standardEnd) / 60000);
+            }
+            updates[`${path}/otMinutes`] = otMinutes;
+        }
+
+        // 5. Push to Firebase
+        await update(ref(db), updates);
+
+        // 6. UI Feedback
+        statusEl.style.color = "green";
+        statusEl.innerText = `✅ Success: Updated ${emp}`;
+        
+        // Refresh views if on the current day
+        if(date === new Date().toISOString().split('T')[0]) {
+            if(typeof loadAdminDashboard === 'function') loadAdminDashboard();
+        }
+        
+        // Refresh the local history table if it's visible
+        if(typeof loadAttendanceHistory === 'function') loadAttendanceHistory();
+
+        // Clear time inputs after successful save
+        document.getElementById('override-time-in').value = "";
+        document.getElementById('override-time-out').value = "";
+
+    } catch(e) {
+        console.error(e);
+        statusEl.style.color = "red";
+        statusEl.innerText = "❌ Error: " + e.message;
+    }
+}
+
+    window.markAdminAbsent = async function() {
+        if(!confirm("Mark this employee as ABSENT? This will clear current logs.")) return;
+        const date = document.getElementById('override-date').value;
+        const emp = document.getElementById('override-emp').value;
+        const statusEl = document.getElementById('override-status');
+        
+        try {
+            // Remove the node for that employee on that date
+            await remove(ref(db, `attendance/${date}/${emp}`));
+            statusEl.innerText = `✅ Marked ABSENT: ${emp}`;
+            if(date === new Date().toISOString().split('T')[0]) loadAdminDashboard();
+            loadAttendanceHistory();
+        } catch(e) { statusEl.innerText = "Error: " + e.message; }
+    }
+
+    function checkLocation() {
+        const badge = document.getElementById('loc-badge');
+        if (!navigator.geolocation) { badge.innerHTML = 'No GPS'; return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const dist = getDistanceFromLatLonInKm(pos.coords.latitude, pos.coords.longitude, SHOP_LAT, SHOP_LNG);
+                if (dist <= ALLOWED_RADIUS_KM || TEST_MODE) { badge.className = 'loc-badge loc-ok'; badge.innerHTML = '<span class="material-icons" style="font-size:14px">verified</span> Shop'; window.isLocationValid = true; } 
+                else { badge.className = 'loc-badge loc-err'; badge.innerHTML = `<span class="material-icons" style="font-size:14px">error</span> Far (${dist.toFixed(2)}km)`; window.isLocationValid = false; }
+            },
+            () => { badge.className = 'loc-badge loc-err'; badge.innerHTML = 'GPS Error'; window.isLocationValid = false; }
+        );
+    }
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) { var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
+    function deg2rad(deg) { return deg * (Math.PI/180); }
+
+    async function confirmCheckIn() {
+        if (!window.isLocationValid && !TEST_MODE) { alert("Go to shop!"); return; }
+        if (!confirm("Check In?")) return;
+        const today = new Date().toISOString().split('T')[0];
+        try { await set(ref(db, `attendance/${today}/${currentUser}`), { inTime: new Date().toISOString(), name: currentUser }); alert("Done!"); refreshAttendanceTab(); } catch(e) { alert(e.message); }
+    }
+
+    async function confirmCheckOut() {
+    if (!window.isLocationValid && !TEST_MODE) { alert("Go to shop!"); return; }
+    if (!confirm("Check Out?")) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+
+    try {
+        // 1. Fetch the check-in time from DB to get the correct date reference
+        const snap = await get(child(ref(db), `attendance/${today}/${currentUser}`));
+        if (!snap.exists()) { alert("Check-in record not found!"); return; }
+        
+        const inTimeData = snap.val().inTime;
+        const inDate = new Date(inTimeData);
+
+        // 2. Set Standard End to 9:00 PM ON THE DAY OF CHECK-IN
+        const standardEnd = new Date(inDate);
+        standardEnd.setHours(21, 0, 0, 0);
+
+        // 3. Calculate OT (Difference in minutes)
+        let otMinutes = 0;
+        if (now > standardEnd) {
+            otMinutes = Math.floor((now - standardEnd) / 60000);
+        }
+
+        await update(ref(db, `attendance/${today}/${currentUser}`), {
+            outTime: now.toISOString(),
+            otMinutes: otMinutes
+        });
+
+        alert("Check-out Successful!");
+        refreshAttendanceTab();
+    } catch(e) { 
+        alert("Error: " + e.message); 
+    }
+}
+
+    function openModal(src) { document.getElementById('img-content').src = src; document.getElementById('img-modal').style.display = 'block'; }
+
+    // --- CSV DOWNLOAD ---
+    function downloadHistoryCSV() {
+        if (!currentHistoryRec || !currentHistoryRec.items) {
+            alert("No data available to download.");
+            return;
+        }
+
+        const dateStr = currentHistoryRec.date;
+        let csvContent = "ERP Code,Code,Item Name,Ordered Qty,Packed Qty,Weight (Kg)\n";
+
+        currentHistoryRec.items.forEach(item => {
+            const cleanName = item.name ? `"${item.name.replace(/"/g, '""')}"` : "Unknown";
+            const ordQty = item.originalQty || item.poQty || 0;
+            const pckQty = item.qty || 0;
+            const weight = item.actualKg || 0;
+            
+            let erpCode = "";
+            if (masterMap[item.code] && masterMap[item.code].erpCode) {
+                erpCode = `"${masterMap[item.code].erpCode}"`; 
+            }
+
+            csvContent += `${erpCode},${item.code},${cleanName},${ordQty},${pckQty},${weight}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Weights_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- EXPORTS ---
+    window.handleLogin = handleLogin;
+    window.handleLogout = handleLogout;
+    window.switchTab = switchTab;
+    window.openPacking = openPacking;
+    window.closePage = closePage;
+    window.toggleFilterMode = toggleFilterMode;
+    window.filterList = filterList;
+    window.saveSingleItem = saveSingleItem;
+    window.enableEditItem = enableEditItem;
+    window.handleImage = handleImage;
+    window.clearImage = clearImage;
+    window.submitToReview = submitToReview;
+    window.executeFinalSubmit = executeFinalSubmit;
+    window.refreshAttendanceTab = refreshAttendanceTab;
+    window.confirmCheckIn = confirmCheckIn;
+    window.confirmCheckOut = confirmCheckOut;
+    window.loadHistory = loadHistory;
+    window.openHistoryDetail = openHistoryDetail;
+    window.toggleHistoryFilterMode = toggleHistoryFilterMode;
+    window.filterHistoryList = filterHistoryList;
+    window.loadAttendanceHistory = loadAttendanceHistory;
+    window.openModal = openModal;
+    window.downloadHistoryCSV = downloadHistoryCSV;
+    window.openAdminOverride = openAdminOverride;
+    window.saveAdminOverride = saveAdminOverride;
+    window.markAdminAbsent = markAdminAbsent;
+
+    init();
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(console.error); }
+</script>
+</body>
+</html>
